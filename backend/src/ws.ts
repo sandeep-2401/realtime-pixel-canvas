@@ -31,7 +31,7 @@ export function setupWebSocket(server : any){
                 if(!lock){
                     ws.send(JSON.stringify({
                         type: "LOCK_DENIED",
-                        payload : {x,y}
+                        payload : {x,y, reason: "ALREADY_LOCKED" }
                     }))
                     return
                 }
@@ -59,13 +59,16 @@ export function setupWebSocket(server : any){
                 if(!lock || lock.ownerId !== userId || lock.expiresAt < Date.now()){
                     ws.send(JSON.stringify({
                         type : "DRAW_DENIED",
-                        payload : {x,y}
+                        payload : {x,y, reason: "NOT_LOCKED_BY_YOU" }
                     }))
                     return
                 }
 
                 updatePixel(x,y,color)
-                releaseLock(key)
+                setTimeout(() => {
+                    releaseLock(key)
+                }, 2000)
+
 
                 wss.clients.forEach(client =>{
                     if(client.readyState ===1){

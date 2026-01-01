@@ -16,10 +16,14 @@ export function Canvas({pixels, locks, onPixelClick} : Props){
     useEffect(() => {
         const canvas = canvasRef.current
         if (!canvas) return
+
         const ctx = canvas.getContext("2d")
         if (!ctx) return
 
         ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE)
+
+        ctx.fillStyle = "#222"
+        ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE)
 
         for (const p of pixels) {
             ctx.fillStyle = p.color
@@ -41,12 +45,32 @@ export function Canvas({pixels, locks, onPixelClick} : Props){
             )
         }
 
+        ctx.strokeStyle = "rgba(255,255,255,0.08)"
+        for (let i = 0; i <= GRID_SIZE; i++) {
+        
+            ctx.beginPath()
+            ctx.moveTo(i * PIXEL_SIZE, 0)
+            ctx.lineTo(i * PIXEL_SIZE, CANVAS_SIZE)
+            ctx.stroke()
+
+            ctx.beginPath()
+            ctx.moveTo(0, i * PIXEL_SIZE)
+            ctx.lineTo(CANVAS_SIZE, i * PIXEL_SIZE)
+            ctx.stroke()
+        }
     }, [pixels,locks])
 
     const handleClick = (e : React.MouseEvent<HTMLCanvasElement>) => {
+        const canvas = canvasRef.current
+        if (!canvas) return
+
         const rect = canvasRef.current!.getBoundingClientRect()
+
         const x = Math.floor((e.clientX - rect.left)/ PIXEL_SIZE)
         const y = Math.floor((e.clientY - rect.top)/ PIXEL_SIZE)
+
+        if (x < 0 || y < 0 || x >= GRID_SIZE || y >= GRID_SIZE) return
+
         onPixelClick(x, y)
     }
 
@@ -56,12 +80,13 @@ export function Canvas({pixels, locks, onPixelClick} : Props){
             ref={canvasRef}
             width={CANVAS_SIZE}
             height={CANVAS_SIZE}
+            onClick={handleClick}
             style={{
                 border: "2px solid black",
+                cursor: "pointer",
+                imageRendering: "pixelated",
                 backgroundColor: "#222"
             }}
-            onClick={handleClick}
-
         />
     )
 }
