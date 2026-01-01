@@ -15,6 +15,9 @@ export function initCanvas() {
 }
 
 export function getCanvasState(): Pixel[]{
-    return Array.from(canvas.values())
+  return Array.from(canvas.values())
+}
 
+export function updatePixel(x: number, y: number, color: string) {
+  canvas.set(`${x}:${y}`, { x, y, color })
 }

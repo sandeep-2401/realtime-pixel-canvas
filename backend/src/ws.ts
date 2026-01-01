@@ -1,6 +1,7 @@
 import WebSocket, {WebSocketServer} from "ws";
 import { IncomingMessage } from "node:http";
-import { getCanvasState } from "./canvas.js";
+import { getCanvasState, updatePixel } from "./canvas.js";
+import { getLock, releaseLock, tryLockPixel } from "./locks.js"
 
 let userCounter = 0
 
@@ -17,5 +18,66 @@ export function setupWebSocket(server : any){
                 payload : getCanvasState()
             })
         )
+
+        ws.on("message",(data)=>{
+            const msg = JSON.parse(data.toString())
+
+            if(msg.type == "LOCK_PIXEL"){
+                const {x,y} = msg.payload
+                const key = `${x}:${y}`
+
+                const lock = tryLockPixel(key,userId)
+
+                if(!lock){
+                    ws.send(JSON.stringify({
+                        type: "LOCK_DENIED",
+                        payload : {x,y}
+                    }))
+                    return
+                }
+
+                wss.clients.forEach(client =>{
+                    if(client.readyState ===1){
+                        client.send(JSON.stringify({
+                            type: "PIXEL_LOCKED",
+                            payload : {
+                                x,
+                                y,
+                                ownerId : userId,
+                                expiresAt : lock.expiresAt
+                            }
+                        }))
+                    }
+                })
+            }
+
+            if(msg.type === "DRAW_PIXEL"){
+                const {x,y,color} = msg.payload
+                const key = `${x}:${y}`
+                const lock = getLock(key)
+
+                if(!lock || lock.ownerId !== userId || lock.expiresAt < Date.now()){
+                    ws.send(JSON.stringify({
+                        type : "DRAW_DENIED",
+                        payload : {x,y}
+                    }))
+                    return
+                }
+
+                updatePixel(x,y,color)
+                releaseLock(key)
+
+                wss.clients.forEach(client =>{
+                    if(client.readyState ===1){
+                        client.send(JSON.stringify({
+                            type : "PIXEL_UPDATED",
+                            payload : {x,y,color}
+                        }))
+                    }
+                })
+            }
+        })
     })
+
+
 }

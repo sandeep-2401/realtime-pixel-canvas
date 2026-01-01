@@ -5,14 +5,24 @@ import { setupWebSocket } from "./ws.js"
 initCanvas()
 
 const server = http.createServer((req,res)=>{
-    if (req.method === "GET" && req.url === '/canvas'){
-        res.writeHead(200, {"Content-Type" : "application/json"})
-        res.end(JSON.stringify(getCanvasState()))
-        return
-    }
+  res.setHeader("Access-Control-Allow-Origin", "*")
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS")
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type")
 
-    res.writeHead(404)
+  if (req.method === "OPTIONS") {
+    res.writeHead(204)
     res.end()
+    return
+  }
+
+  if (req.method === "GET" && req.url === '/canvas'){
+      res.writeHead(200, {"Content-Type" : "application/json"})
+      res.end(JSON.stringify(getCanvasState()))
+      return
+  }
+
+  res.writeHead(404)
+  res.end()
 })
 
 setupWebSocket(server)
