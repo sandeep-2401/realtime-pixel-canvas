@@ -1,5 +1,5 @@
 import { useRef, useEffect } from "react";
-import type { Pixel, PixelLock } from "./types";
+import type { Pixel, PixelLock } from "../types";
 
 const CANVAS_SIZE = 500
 const GRID_SIZE = 50

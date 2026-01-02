@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react"
-import { Canvas } from "./Canvas"
+import { Canvas } from "./components/Canvas"
 import type { Pixel, PixelLock } from "./types"
 import { ColorPalette } from "./components/ColorPalette"
 

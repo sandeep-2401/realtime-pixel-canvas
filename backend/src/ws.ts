@@ -1,4 +1,4 @@
-import WebSocket, {WebSocketServer} from "ws";
+import {WebSocketServer} from "ws";
 import { IncomingMessage } from "node:http";
 import { getCanvasState, updatePixel } from "./canvas.js";
 import { getLock, releaseLock, tryLockPixel } from "./locks.js"
