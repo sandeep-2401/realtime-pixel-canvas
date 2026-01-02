@@ -19,57 +19,29 @@ type Props = {
 
 export function ColorPalette({ selectedColor, onSelect }: Props) {
   return (
-    <div
-      style={{
-        width: 500,
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        gap: 10,
-        padding: 12,
-        background: "#2a2a2a",
-        borderRadius: 12,
-        border: "2px solid #444"
-      }}
-    >
+    <div className="w-[500px] flex items-center justify-center gap-2 p-3 bg-neutral-800 border-2 border-neutral-600 rounded-xl">
       {COLORS.map(color => (
         <button
           key={color}
           onClick={() => onSelect(color)}
-          style={{
-            width: 32,
-            height: 32,
-            borderRadius: "50%",
-            backgroundColor: color,
-            cursor: "pointer",
-            border:
-              selectedColor === color
-                ? "3px solid white"
-                : "2px solid #555"
-          }}
+          className={`w-8 h-8 rounded-full cursor-pointer transition-transform hover:scale-110 ${
+            selectedColor === color
+              ? "ring-2 ring-white ring-offset-2 ring-offset-neutral-800"
+              : "border-2 border-neutral-600"
+          }`}
+          style={{ backgroundColor: color }}
         />
       ))}
 
-      <label
-        style={{
-          width: 32,
-          height: 32,
-          borderRadius: "50%",
-          border: "2px solid #555",
-          cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "linear-gradient(135deg, pink, purple)"
-        }}
-      >
+      {/* Custom color picker */}
+      <label className="w-8 h-8 rounded-full border-2 border-neutral-600 cursor-pointer flex items-center justify-center bg-gradient-to-br from-pink-400 to-purple-600 hover:scale-110 transition-transform">
         <input
           type="color"
           value={selectedColor}
           onChange={e => onSelect(e.target.value)}
-          style={{ display: "none" }}
+          className="hidden"
         />
-        🎨
+        <span className="text-sm">🎨</span>
       </label>
     </div>
   )

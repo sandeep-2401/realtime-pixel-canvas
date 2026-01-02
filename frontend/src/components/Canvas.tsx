@@ -45,7 +45,7 @@ export function Canvas({pixels, locks, onPixelClick} : Props){
             )
         }
 
-        ctx.strokeStyle = "rgba(255,255,255,0.08)"
+        ctx.strokeStyle = "#e5e7eb"
         for (let i = 0; i <= GRID_SIZE; i++) {
         
             ctx.beginPath()
