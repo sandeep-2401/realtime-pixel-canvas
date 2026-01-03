@@ -1,5 +1,6 @@
-import type {Pixel} from './types.js'
+import type {Pixel, CanvasSnapshot} from './types.js'
 import {prisma} from "./prisma.js"
+import { getActiveLocks } from './locks.js'
 
 const WIDTH = 50
 const HEIGHT = 50
@@ -22,10 +23,6 @@ export function initCanvas() {
   }
 }
 
-export function getCanvasState(): Pixel[]{
-  return Array.from(canvas.values())
-}
-
 export async function updatePixel(x: number, y: number, color: string) {
   canvas.set(`${x}:${y}`, { x, y, color })
 
@@ -35,4 +32,15 @@ export async function updatePixel(x: number, y: number, color: string) {
     create: { x, y, color }
   })
 
+}
+
+function getCanvasState(): Pixel[]{
+  return Array.from(canvas.values())
+}
+
+export function getAuthoritativeSnapshot() : CanvasSnapshot  {
+  return {
+    pixels: getCanvasState(),
+    locks: getActiveLocks()
+  }
 }

@@ -1,6 +1,6 @@
 import {WebSocketServer} from "ws";
 import { IncomingMessage } from "node:http";
-import { getCanvasState, updatePixel } from "./canvas.js";
+import { getAuthoritativeSnapshot, updatePixel } from "./canvas.js";
 import { getLock, releaseLock, tryLockPixel } from "./locks.js"
 
 let userCounter = 0
@@ -15,7 +15,7 @@ export function setupWebSocket(server : any){
         ws.send(
             JSON.stringify({
                 type : "CANVAS_SNAPSHOT",
-                payload : getCanvasState()
+                payload : getAuthoritativeSnapshot()
             })
         )
 
@@ -24,9 +24,8 @@ export function setupWebSocket(server : any){
 
             if(msg.type == "LOCK_PIXEL"){
                 const {x,y} = msg.payload
-                const key = `${x}:${y}`
 
-                const lock = tryLockPixel(key,userId)
+                const lock = tryLockPixel(x,y,userId)
 
                 if(!lock){
                     ws.send(JSON.stringify({
@@ -51,7 +50,7 @@ export function setupWebSocket(server : any){
                 })
             }
 
-            if(msg.type === "DRAW_PIXEL"){
+            else if(msg.type === "DRAW_PIXEL"){
                 const {x,y,color} = msg.payload
                 const key = `${x}:${y}`
                 const lock = getLock(key)
@@ -78,6 +77,15 @@ export function setupWebSocket(server : any){
                         }))
                     }
                 })
+            }
+
+            else if(msg.type === "REQUEST_SNAPSHOT"){
+                ws.send(
+                    JSON.stringify({
+                        type : "CANVAS_SNAPSHOT",
+                        payload : getAuthoritativeSnapshot()
+                    })
+                )
             }
         })
     })

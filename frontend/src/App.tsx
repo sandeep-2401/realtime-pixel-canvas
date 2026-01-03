@@ -23,11 +23,6 @@ function App(){
   }, [error])
 
 
-  useEffect(() => {
-    fetch("http://localhost:3000/canvas")
-      .then(res => res.json())
-      .then(setPixels)
-  }, [])
 
   useEffect(() => {
     const ws = new WebSocket("ws://localhost:3000")
@@ -37,7 +32,8 @@ function App(){
       const msg = JSON.parse(event.data)
 
       if (msg.type === "CANVAS_SNAPSHOT"){
-        setPixels(msg.payload)
+        setPixels(msg.payload.pixels)
+        setLocks(msg.payload.locks)
       }
 
       else if (msg.type === "LOCK_DENIED") {
