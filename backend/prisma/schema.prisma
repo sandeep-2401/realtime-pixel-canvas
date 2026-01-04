@@ -8,10 +8,11 @@ generator client {
 }
 
 model Pixel {
+  roomId String
   x     Int
   y     Int
   color String
 
-  @@id([x, y])
+  @@id([roomId, x, y])
 }
 

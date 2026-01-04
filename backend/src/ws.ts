@@ -1,23 +1,37 @@
 import {WebSocketServer} from "ws";
+import type { WebSocket as WS } from "ws";
 import { IncomingMessage } from "node:http";
 import { getAuthoritativeSnapshot, updatePixel } from "./canvas.js";
 import { getLock, releaseLock, tryLockPixel } from "./locks.js"
+import { getOrCreateRoom } from "./rooms.js";
 
 let userCounter = 0
 
 export function setupWebSocket(server : any){
     const wss = new WebSocketServer({server})
 
-    wss.on("connection", (ws, _req : IncomingMessage) => {
+    wss.on("connection", async (ws : WS, _req : IncomingMessage) => {
         const userId = ++userCounter
         console.log(`User ${userId} connected`)
+
+        const url = new URL(_req.url!, "http://localhost")
+        const roomId = url.searchParams.get("roomId") ?? "default"
+
+        const room = await getOrCreateRoom(roomId)
+        const room_canvas = room.canvas
+        const room_locks = room.locks
+        room.clients.add(ws)
 
         ws.send(
             JSON.stringify({
                 type : "CANVAS_SNAPSHOT",
-                payload : getAuthoritativeSnapshot()
+                payload : getAuthoritativeSnapshot(room_locks,room_canvas)
             })
         )
+
+        ws.on("close",()=>{
+            room.clients.delete(ws)
+        })
 
         ws.on("message",(data)=>{
             const msg = JSON.parse(data.toString())
@@ -25,7 +39,7 @@ export function setupWebSocket(server : any){
             if(msg.type == "LOCK_PIXEL"){
                 const {x,y} = msg.payload
 
-                const lock = tryLockPixel(x,y,userId)
+                const lock = tryLockPixel(room_locks,x,y,userId)
 
                 if(!lock){
                     ws.send(JSON.stringify({
@@ -35,7 +49,7 @@ export function setupWebSocket(server : any){
                     return
                 }
 
-                wss.clients.forEach(client =>{
+                room.clients.forEach(client =>{
                     if(client.readyState ===1){
                         client.send(JSON.stringify({
                             type: "PIXEL_LOCKED",
@@ -53,7 +67,7 @@ export function setupWebSocket(server : any){
             else if(msg.type === "DRAW_PIXEL"){
                 const {x,y,color} = msg.payload
                 const key = `${x}:${y}`
-                const lock = getLock(key)
+                const lock = getLock(room_locks,key)
 
                 if(!lock || lock.ownerId !== userId || lock.expiresAt < Date.now()){
                     ws.send(JSON.stringify({
@@ -63,13 +77,13 @@ export function setupWebSocket(server : any){
                     return
                 }
 
-                updatePixel(x,y,color)
+                updatePixel(roomId,room_canvas,x,y,color)
                 setTimeout(() => {
-                    releaseLock(key)
+                    releaseLock(room_locks,key)
                 }, 2000)
 
 
-                wss.clients.forEach(client =>{
+                room.clients.forEach(client =>{
                     if(client.readyState ===1){
                         client.send(JSON.stringify({
                             type : "PIXEL_UPDATED",
@@ -83,7 +97,7 @@ export function setupWebSocket(server : any){
                 ws.send(
                     JSON.stringify({
                         type : "CANVAS_SNAPSHOT",
-                        payload : getAuthoritativeSnapshot()
+                        payload : getAuthoritativeSnapshot(room_locks,room_canvas)
                     })
                 )
             }

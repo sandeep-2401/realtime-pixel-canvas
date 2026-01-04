@@ -1,5 +1,4 @@
 import http from "http"
-import { initCanvas, getAuthoritativeSnapshot, loadFromDB } from "./canvas.js"
 import { setupWebSocket } from "./ws.js"
 
 const server = http.createServer((req, res) => {
@@ -13,19 +12,11 @@ const server = http.createServer((req, res) => {
     return
   }
 
-  if (req.method === "GET" && req.url === "/canvas") {
-    res.writeHead(200, { "Content-Type": "application/json" })
-    res.end(JSON.stringify(getAuthoritativeSnapshot()))
-    return
-  }
-
   res.writeHead(404)
   res.end()
 })
 
-async function startServer() {
-  initCanvas()
-  await loadFromDB()          
+function startServer() {
   setupWebSocket(server)
 
   server.listen(3000, () => {

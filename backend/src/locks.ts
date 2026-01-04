@@ -1,9 +1,13 @@
 import type { PixelLock } from "./types.js";
 
-const locks = new Map<string,PixelLock>()
+// const locks = new Map<string,PixelLock>()
 const LOCK_DURATION_MS = 5000
 
-export function tryLockPixel(x : number, y : number, userId : number) : PixelLock | null{
+export function tryLockPixel(
+    locks : Map<string, PixelLock>,
+    x : number, 
+    y : number,
+    userId : number ) : PixelLock | null{
     const now = Date.now()
     const key = `${x}:${y}`
     const existing = locks.get(key)
@@ -23,15 +27,21 @@ export function tryLockPixel(x : number, y : number, userId : number) : PixelLoc
     return lock
 }
 
-export function getLock(key :  string){
+export function getLock(
+    locks : Map<string, PixelLock>,
+    key :  string){
     return locks.get(key)
 }
 
-export function releaseLock(key : string){
+export function releaseLock(
+    locks : Map<string, PixelLock>,
+    key : string){
     return locks.delete(key)
 }
 
-export function getActiveLocks(): PixelLock[] {
+export function getActiveLocks(
+    locks : Map<string, PixelLock>
+): PixelLock[] {
   const now = Date.now()
   return Array.from(locks.values()).filter(
     lock => lock.expiresAt > now

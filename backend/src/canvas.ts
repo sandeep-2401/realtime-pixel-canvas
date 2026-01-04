@@ -1,20 +1,25 @@
-import type {Pixel, CanvasSnapshot} from './types.js'
+import type {Pixel,PixelLock, CanvasSnapshot} from './types.js'
 import {prisma} from "./prisma.js"
 import { getActiveLocks } from './locks.js'
 
 const WIDTH = 50
 const HEIGHT = 50
 
-const canvas = new Map<String,Pixel>()
+// const canvas = new Map<String,Pixel>()
 
-export async function loadFromDB() {
-  const rows = await prisma.pixel.findMany()
+export async function loadRoomFromDB(
+  roomId : string,
+  canvas : Map<string,Pixel>
+) {
+  const rows = await prisma.pixel.findMany({
+    where : {roomId}
+  })
   for (const r of rows) {
     canvas.set(`${r.x}:${r.y}`, { x: r.x, y: r.y, color: r.color })
   }
 }
 
-export function initCanvas() {
+export function initCanvas(canvas : Map<String,Pixel>) {
   for (let x = 0; x < WIDTH; x++) {
     for (let y = 0; y < HEIGHT; y++) {
       const key = `${x}:${y}`
@@ -23,24 +28,34 @@ export function initCanvas() {
   }
 }
 
-export async function updatePixel(x: number, y: number, color: string) {
+export async function updatePixel(
+  roomId : string,
+  canvas : Map<String,Pixel>,
+  x: number, y: number, 
+  color: string
+) {
   canvas.set(`${x}:${y}`, { x, y, color })
 
     await prisma.pixel.upsert({
-    where: { x_y: { x, y } },
+    where: { roomId_x_y: { roomId,x, y } },
     update: { color },
-    create: { x, y, color }
+    create: { roomId,x, y, color }
   })
 
 }
 
-function getCanvasState(): Pixel[]{
+function getCanvasState(
+  canvas : Map<String,Pixel>
+): Pixel[]{
   return Array.from(canvas.values())
 }
 
-export function getAuthoritativeSnapshot() : CanvasSnapshot  {
+export function getAuthoritativeSnapshot(
+  locks : Map<string, PixelLock>,
+  canvas : Map<String,Pixel> 
+) : CanvasSnapshot  {
   return {
-    pixels: getCanvasState(),
-    locks: getActiveLocks()
+    pixels: getCanvasState(canvas),
+    locks: getActiveLocks(locks)
   }
 }

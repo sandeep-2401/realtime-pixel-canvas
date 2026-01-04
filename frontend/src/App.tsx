@@ -25,7 +25,10 @@ function App(){
 
 
   useEffect(() => {
-    const ws = new WebSocket("ws://localhost:3000")
+    const params = new URLSearchParams(window.location.search)
+    const roomId = params.get("roomId") ?? "default"
+
+    const ws = new WebSocket(`ws://localhost:3000?roomId=${roomId}`)
     wsRef.current = ws
 
     ws.onmessage = (event) => {
