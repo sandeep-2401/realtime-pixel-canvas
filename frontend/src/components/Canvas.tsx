@@ -9,9 +9,10 @@ type Props = {
   pixels: Pixel[]
   locks: PixelLock[]
   onPixelClick: (x: number, y: number) => void
+  onCursorMove: (x: number, y: number) => void
 }
 
-export function Canvas({pixels, locks, onPixelClick} : Props){
+export function Canvas({pixels, locks, onPixelClick, onCursorMove} : Props){
     const canvasRef = useRef<HTMLCanvasElement | null>(null)
     useEffect(() => {
         const canvas = canvasRef.current
@@ -65,22 +66,31 @@ export function Canvas({pixels, locks, onPixelClick} : Props){
         if (!canvas) return
 
         const rect = canvasRef.current!.getBoundingClientRect()
-
         const x = Math.floor((e.clientX - rect.left)/ PIXEL_SIZE)
         const y = Math.floor((e.clientY - rect.top)/ PIXEL_SIZE)
 
         if (x < 0 || y < 0 || x >= GRID_SIZE || y >= GRID_SIZE) return
-
         onPixelClick(x, y)
     }
 
+    const handleMouseMove = (e : React.MouseEvent<HTMLCanvasElement>) => {
+        const canvas = canvasRef.current
+        if (!canvas) return
 
+        const rect = e.currentTarget.getBoundingClientRect()
+        onCursorMove(
+            e.clientX - rect.left,
+            e.clientY - rect.top
+        )
+
+    }
     return (
         <canvas
             ref={canvasRef}
             width={CANVAS_SIZE}
             height={CANVAS_SIZE}
             onClick={handleClick}
+            onMouseMove={handleMouseMove}
             style={{
                 border: "2px solid black",
                 cursor: "pointer",

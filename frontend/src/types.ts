@@ -10,3 +10,10 @@ export type PixelLock = {
   ownerId: number
   expiresAt: number
 }
+export type UserPresence = {
+  userId: number
+  name : string
+  x: number
+  y: number
+  lastSeen : number
+}

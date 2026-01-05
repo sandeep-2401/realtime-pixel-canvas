@@ -3,7 +3,8 @@ import type { WebSocket as WS } from "ws";
 import { IncomingMessage } from "node:http";
 import { getAuthoritativeSnapshot, updatePixel } from "./canvas.js";
 import { getLock, releaseLock, tryLockPixel } from "./locks.js"
-import { getOrCreateRoom } from "./rooms.js";
+import { getOrCreateRoom,removeRoomIfEmpty } from "./rooms.js";
+import { assignRandomName,broadcastUserList } from "./names.js";
 
 let userCounter = 0
 
@@ -18,6 +19,7 @@ export function setupWebSocket(server : any){
         const roomId = url.searchParams.get("roomId") ?? "default"
 
         const room = await getOrCreateRoom(roomId)
+        const userName = assignRandomName(room.usedNames)
         const room_canvas = room.canvas
         const room_locks = room.locks
         room.clients.add(ws)
@@ -28,9 +30,23 @@ export function setupWebSocket(server : any){
                 payload : getAuthoritativeSnapshot(room_locks,room_canvas)
             })
         )
+        broadcastUserList(room)
 
         ws.on("close",()=>{
             room.clients.delete(ws)
+            room.presence.delete(userId)
+            room.usedNames.delete(userName)
+            
+            room.clients.forEach(client =>{
+                if(client.readyState ===1){
+                    client.send(JSON.stringify({
+                        type : "USER_LEFT",
+                        payload : {userId}
+                    }))
+                }
+            })
+            broadcastUserList(room)
+            removeRoomIfEmpty(roomId)
         })
 
         ws.on("message",(data)=>{
@@ -101,8 +117,30 @@ export function setupWebSocket(server : any){
                     })
                 )
             }
+
+            else if(msg.type === "CURSOR_MOVE"){
+                const {x,y} = msg.payload
+                broadcastUserList(room)
+                const presence = {
+                    userId,
+                    name: userName,
+                    x,
+                    y,
+                    lastSeen : Date.now()
+                }
+
+                room.presence.set(userId, presence)
+
+                room.clients.forEach(client=>{
+                    if(client!==ws && client.readyState ===1){
+                        client.send(JSON.stringify({
+                            type : "USER_CURSOR",
+                            payload : presence
+                        }))
+                    }
+                })
+            }
         })
     })
-
 
 }

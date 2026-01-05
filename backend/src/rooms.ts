@@ -1,13 +1,6 @@
-import type { Pixel, PixelLock } from "./types.js";
+import type { Pixel, PixelLock, RoomState } from "./types.js";
 import { initCanvas, loadRoomFromDB } from "./canvas.js";
-import type { WebSocket as WS } from "ws"
-
-export type RoomState = {
-    canvas : Map<string,Pixel>
-    locks : Map<string,PixelLock>
-    clients : Set<WS>
-}
-
+import { broadcastUserList } from "./names.js";
 const rooms = new Map<string, RoomState>()
 
 export async function getOrCreateRoom(
@@ -19,7 +12,10 @@ export async function getOrCreateRoom(
         room = {
             canvas : new Map(),
             locks : new Map(),
-            clients : new Set()
+            clients : new Set(),
+            presence: new Map(),
+            usedNames: new Set()
+
         }
         initCanvas(room.canvas)
         await loadRoomFromDB(roomId,room.canvas)
@@ -28,3 +24,42 @@ export async function getOrCreateRoom(
 
     return room
 }
+
+export function removeRoomIfEmpty(roomId : string){
+    const room = rooms.get(roomId)
+    if(!room) return
+
+    if(room.clients.size ===0){
+        rooms.delete(roomId)
+        console.log(`Room ${roomId} cleaned up`)
+    }
+}
+
+setInterval(() => {
+  const now = Date.now()
+
+  for (const [roomId, room] of rooms.entries()) {
+    for (const [userId, presence] of room.presence.entries()) {
+      if (now - presence.lastSeen > 5000) {
+        room.presence.delete(userId)
+        room.usedNames.delete(presence.name)
+
+        room.clients.forEach(client => {
+          if (client.readyState === 1) {
+            client.send(JSON.stringify({
+              type: "USER_LEFT",
+              payload: { userId }
+            }))
+          }
+        })
+
+        broadcastUserList(room)
+      }
+    }
+
+    if (room.clients.size === 0) {
+      rooms.delete(roomId)
+      console.log(`Room ${roomId} cleaned up (inactivity)`)
+    }
+  }
+}, 1000)
