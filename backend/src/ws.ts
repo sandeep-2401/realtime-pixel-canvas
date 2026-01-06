@@ -12,18 +12,19 @@ let userCounter = 0
 export function setupWebSocket(server : any){
     const wss = new WebSocketServer({server})
 
-    // function broadcastRoomList() {
-    //     const msg = JSON.stringify({
-    //         type: "ROOM_LIST",
-    //         payload: getRoomSummaries()
-    //     })
+    function broadcastRoomList() {
+        // console.log("Broadcasting ROOM_LIST:", getRoomSummaries())
+        const msg = JSON.stringify({
+            type: "ROOM_LIST",
+            payload: getRoomSummaries()
+        })
 
-    //     wss.clients.forEach(client => {
-    //         if (client.readyState === 1) {
-    //         client.send(msg)
-    //         }
-    //     })
-    // }
+        wss.clients.forEach(client => {
+            if (client.readyState === 1) {
+            client.send(msg)
+            }
+        })
+    }
 
     wss.on("connection", async (ws : WS, _req : IncomingMessage) => {
         const userId = ++userCounter
@@ -34,10 +35,11 @@ export function setupWebSocket(server : any){
 
         const room = await getOrCreateRoom(roomId)
         const userName = assignRandomName(room.usedNames)
+        // room.usedNames.add(userName)
         const room_canvas = room.canvas
         const room_locks = room.locks
         room.clients.add(ws)
-        // broadcastRoomList()
+        broadcastRoomList()
 
         ws.send(
             JSON.stringify({
@@ -62,7 +64,7 @@ export function setupWebSocket(server : any){
             })
             broadcastUserList(room)
             removeRoomIfEmpty(roomId)
-            // broadcastRoomList()
+            broadcastRoomList()
         })
 
         ws.on("message",async (data)=>{

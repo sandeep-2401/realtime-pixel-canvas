@@ -21,7 +21,6 @@ export async function getOrCreateRoom(
         await loadRoomFromDB(roomId,room.canvas)
         rooms.set(roomId,room)
     }
-
     return room
 }
 
@@ -64,9 +63,9 @@ setInterval(() => {
       }
     }
 
-    if (room.clients.size === 0) {
-      rooms.delete(roomId)
-      console.log(`Room ${roomId} cleaned up (inactivity)`)
-    }
+    // if (room.clients.size === 0) {
+    //   rooms.delete(roomId)
+    //   console.log(`Room ${roomId} cleaned up (inactivity)`)
+    // }
   }
 }, 1000)
