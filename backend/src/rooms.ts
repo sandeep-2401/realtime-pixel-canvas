@@ -1,4 +1,4 @@
-import type { Pixel, PixelLock, RoomState } from "./types.js";
+import type { RoomState } from "./types.js";
 import { initCanvas, loadRoomFromDB } from "./canvas.js";
 import { broadcastUserList } from "./names.js";
 const rooms = new Map<string, RoomState>()
@@ -35,6 +35,13 @@ export function removeRoomIfEmpty(roomId : string){
     }
 }
 
+export function getRoomSummaries() {
+  return Array.from(rooms.entries()).map(([roomId, room]) => ({
+    roomId,
+    users: room.clients.size
+  }))
+}
+
 setInterval(() => {
   const now = Date.now()
 
@@ -42,7 +49,7 @@ setInterval(() => {
     for (const [userId, presence] of room.presence.entries()) {
       if (now - presence.lastSeen > 5000) {
         room.presence.delete(userId)
-        room.usedNames.delete(presence.name)
+        // room.usedNames.delete(presence.name)
 
         room.clients.forEach(client => {
           if (client.readyState === 1) {

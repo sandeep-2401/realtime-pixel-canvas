@@ -1,15 +1,29 @@
 import {WebSocketServer} from "ws";
 import type { WebSocket as WS } from "ws";
+import {prisma} from "./prisma.js";
 import { IncomingMessage } from "node:http";
 import { getAuthoritativeSnapshot, updatePixel } from "./canvas.js";
 import { getLock, releaseLock, tryLockPixel } from "./locks.js"
-import { getOrCreateRoom,removeRoomIfEmpty } from "./rooms.js";
+import { getOrCreateRoom,removeRoomIfEmpty, getRoomSummaries } from "./rooms.js";
 import { assignRandomName,broadcastUserList } from "./names.js";
 
 let userCounter = 0
 
 export function setupWebSocket(server : any){
     const wss = new WebSocketServer({server})
+
+    // function broadcastRoomList() {
+    //     const msg = JSON.stringify({
+    //         type: "ROOM_LIST",
+    //         payload: getRoomSummaries()
+    //     })
+
+    //     wss.clients.forEach(client => {
+    //         if (client.readyState === 1) {
+    //         client.send(msg)
+    //         }
+    //     })
+    // }
 
     wss.on("connection", async (ws : WS, _req : IncomingMessage) => {
         const userId = ++userCounter
@@ -23,6 +37,7 @@ export function setupWebSocket(server : any){
         const room_canvas = room.canvas
         const room_locks = room.locks
         room.clients.add(ws)
+        // broadcastRoomList()
 
         ws.send(
             JSON.stringify({
@@ -47,9 +62,10 @@ export function setupWebSocket(server : any){
             })
             broadcastUserList(room)
             removeRoomIfEmpty(roomId)
+            // broadcastRoomList()
         })
 
-        ws.on("message",(data)=>{
+        ws.on("message",async (data)=>{
             const msg = JSON.parse(data.toString())
 
             if(msg.type == "LOCK_PIXEL"){
@@ -140,7 +156,51 @@ export function setupWebSocket(server : any){
                     }
                 })
             }
+            else if (msg.type === "RESET_CANVAS") {
+            // clear in-memory canvas
+                room_canvas.clear()
+
+                // clear locks
+                room_locks.clear()
+
+                // clear DB (for persistence)
+                await prisma.pixel.deleteMany({
+                    where: { roomId }
+                })
+
+                // broadcast reset
+                room.clients.forEach(client => {
+                    if (client.readyState === 1) {
+                    client.send(JSON.stringify({
+                        type: "CANVAS_RESET"
+                    }))
+                    }
+                })
+            }
+
+            // else if (msg.type === "REQUEST_SNAPSHOT") {
+            //     const pixels = await prisma.pixel.findMany({
+            //         where: { roomId }
+            //     })
+
+            //     ws.send(JSON.stringify({
+            //         type: "CANVAS_SNAPSHOT",
+            //         payload: {
+            //             pixels,
+            //             locks: []
+            //         }
+            //     }))
+            // }
+            else if (msg.type === "REQUEST_SNAPSHOT"){
+                ws.send(
+                    JSON.stringify({
+                    type : "CANVAS_SNAPSHOT",
+                    payload : getAuthoritativeSnapshot(room_locks, room_canvas)
+                    })
+                )
+            }
         })
     })
 
 }
+

@@ -1,4 +1,5 @@
 import type { RoomState } from "./types.js"
+
 export const NAMES = [
   "Falcon", "Tiger", "Wolf", "Eagle", "Panther",
   "Viper", "Hawk", "Raven", "Fox", "Bear",
@@ -16,17 +17,18 @@ export function assignRandomName(usedNames: Set<string>): string {
   }
 
   const index = Math.floor(Math.random() * available.length)
-  const name = available[index]!   // ✅ non-null assertion is safe here
+  const name = available[index]! 
 
   usedNames.add(name)
   return name
 }
 
 export function broadcastUserList(room: RoomState) {
-  const users = Array.from(room.presence.values()).map(p => ({
-    userId: p.userId,
-    name: p.name
+  const users = Array.from(room.usedNames).map((name, index) => ({
+    userId: index,  
+    name
   }))
+
 
   room.clients.forEach(client => {
     if (client.readyState === 1) {

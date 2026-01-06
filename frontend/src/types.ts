@@ -10,6 +10,7 @@ export type PixelLock = {
   ownerId: number
   expiresAt: number
 }
+
 export type UserPresence = {
   userId: number
   name : string
@@ -17,3 +18,4 @@ export type UserPresence = {
   y: number
   lastSeen : number
 }
+

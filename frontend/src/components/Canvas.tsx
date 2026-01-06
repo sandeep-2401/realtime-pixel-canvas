@@ -21,9 +21,9 @@ export function Canvas({pixels, locks, onPixelClick, onCursorMove} : Props){
         const ctx = canvas.getContext("2d")
         if (!ctx) return
 
-        ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE)
+        // ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE)
 
-        ctx.fillStyle = "#222"
+        ctx.fillStyle = "#ffffff"
         ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE)
 
         for (const p of pixels) {
