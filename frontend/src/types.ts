@@ -18,4 +18,3 @@ export type UserPresence = {
   y: number
   lastSeen : number
 }
-

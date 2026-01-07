@@ -31,7 +31,15 @@ export function setupWebSocket(server : any){
         console.log(`User ${userId} connected`)
 
         const url = new URL(_req.url!, "http://localhost")
-        const roomId = url.searchParams.get("roomId") ?? "default"
+        const roomId = url.searchParams.get("roomId")
+
+        if (!roomId) {
+            ws.send(JSON.stringify({
+            type: "ROOM_LIST",
+            payload: getRoomSummaries()
+            }))
+            return
+        }
 
         const room = await getOrCreateRoom(roomId)
         const userName = assignRandomName(room.usedNames)
