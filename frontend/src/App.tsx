@@ -18,6 +18,7 @@ function App(){
       })
   const [showUserPopover, setShowUserPopover] = useState(false)
   const userPopoverRef = useRef<HTMLDivElement | null>(null)
+  const [isResetting, setIsResetting] = useState(false)
 
   const wsRef = useRef<WebSocket | null>(null)
   const pendingDrawRef = useRef<{ x: number; y: number; color: string } | null>(null)
@@ -47,6 +48,13 @@ function App(){
     document.addEventListener("mousedown", handleClickOutside)
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [showUserPopover])
+
+  useEffect(() => {
+    if (isResetting && pixels.length === 0) {
+      setIsResetting(false)
+    }
+  }, [pixels, isResetting])
+
 
 
   useEffect(() => {
@@ -352,7 +360,10 @@ function App(){
 
           {/* Reset */}
           <button
-            onClick={onResetCanvas}
+            onClick={()=>{
+              setIsResetting(true)
+              onResetCanvas()
+            }}
             className="
               px-3 py-1.5 text-sm rounded-lg
               bg-red-600 hover:bg-red-700
@@ -413,6 +424,35 @@ function App(){
             border border-[#2a2a2a]
           "
         >
+          {isResetting && (
+            <div className="
+              absolute inset-0
+              bg-[#1a1a1a]/70
+              backdrop-blur-sm
+              flex items-center justify-center
+              rounded-2xl
+              z-20
+            ">
+              <div className="flex flex-col items-center gap-3">
+                <div className="
+                  w-48 h-3
+                  bg-[#2a2a2a]
+                  rounded
+                  animate-pulse
+                " />
+                <div className="
+                  w-32 h-3
+                  bg-[#2a2a2a]
+                  rounded
+                  animate-pulse
+                " />
+                <div className="text-xs text-gray-400 mt-2">
+                  Resetting canvas…
+                </div>
+              </div>
+            </div>
+          )}
+
           <Canvas
             pixels={pixels}
             locks={locks}
