@@ -16,6 +16,9 @@ function App(){
         const params = new URLSearchParams(window.location.search)
         return params.get("roomId") ?? "default"
       })
+  const [showUserPopover, setShowUserPopover] = useState(false)
+  const userPopoverRef = useRef<HTMLDivElement | null>(null)
+
   const wsRef = useRef<WebSocket | null>(null)
   const pendingDrawRef = useRef<{ x: number; y: number; color: string } | null>(null)
   const canvasWrapperRef = useRef<HTMLDivElement | null>(null)
@@ -29,6 +32,22 @@ function App(){
 
     return () => clearTimeout(timer)
   }, [error])
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (
+        showUserPopover &&
+        userPopoverRef.current &&
+        !userPopoverRef.current.contains(e.target as Node)
+      ) {
+        setShowUserPopover(false)
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [showUserPopover])
+
 
   useEffect(() => {
     if (!roomId) return
@@ -185,86 +204,214 @@ function App(){
 
 
   return (
-  <div className="h-screen bg-[#0f0f0f] flex text-white">
+    <div className="h-screen bg-[#0f0f0f] text-white flex flex-col relative">
 
-    {/* LEFT SIDEBAR — ROOMS */}
-    {/* <RoomSelector
-      rooms={rooms}
-      currentRoom={roomId}
-      onJoin={(newRoomId) => {
-        if (newRoomId === roomId) return
-        wsRef.current?.close()
-        setRoomId(newRoomId)
-      }}
-    /> */}
+      {/* TOP BAR */}
+      <div
+        className="
+          flex flex-col md:flex-row
+          md:items-center md:justify-between
+          gap-3
+          px-4 md:px-6
+          py-3
+          border-b border-[#222]
+          bg-[#0f0f0f]
+        "
+      >
 
-    {/* MAIN CONTENT */}
-    <div className="flex-1 flex justify-center overflow-y-auto">
-      <div className="flex flex-col items-center gap-6 w-full max-w-3xl py-6">
+        {/* LEFT — Room identity + users */}
+        <div className="flex flex-col gap-1">
 
-        {/* TOP CONTROLS */}
-        <div className="flex items-center gap-4 bg-[#1a1a1a] px-4 py-3 rounded-xl shadow-md border border-[#2a2a2a]">
-          <ColorPalette
-            selectedColor={color}
-            onSelect={setColor}
-          />
+          {/* Room name */}
+          <div className="text-sm font-medium text-white">
+            Room <span className="font-mono text-cyan-300">{roomId}</span>
+          </div>
 
-          <button
-            onClick={onResetCanvas}
-            className="px-4 py-2 text-sm rounded-lg bg-red-600 hover:bg-red-700 text-white transition"
-          >
-            Reset Canvas
-          </button>
+          {/* Users */}
+          <div className="flex items-center gap-2 flex-wrap relative">
+            <span className="text-xs text-gray-400">
+              Active users:
+            </span>
 
+            {/* Mobile: show 2 */}
+            <div className="flex items-center gap-2 md:hidden">
+              {users.slice(0, 2).map(u => (
+                <div
+                  key={u.userId}
+                  className="
+                    px-2 py-0.5
+                    text-xs rounded-full
+                    bg-[#1a1a1a]
+                    border border-[#2a2a2a]
+                    text-cyan-300
+                    whitespace-nowrap
+                  "
+                >
+                  {u.name}
+                </div>
+              ))}
+
+              {users.length > 2 && (
+                <button
+                  onClick={() => setShowUserPopover(v => !v)}
+                  className="
+                    px-2 py-0.5 text-xs rounded-full
+                    bg-[#1a1a1a]
+                    border border-[#2a2a2a]
+                    text-gray-300 hover:bg-[#222]
+                  "
+                >
+                  +{users.length - 2}
+                </button>
+              )}
+            </div>
+
+            {/* Desktop: show minimum 4 */}
+            <div className="hidden md:flex items-center gap-2">
+              {users.slice(0, 4).map(u => (
+                <div
+                  key={u.userId}
+                  className="
+                    px-2 py-0.5
+                    text-xs rounded-full
+                    bg-[#1a1a1a]
+                    border border-[#2a2a2a]
+                    text-cyan-300
+                    whitespace-nowrap
+                  "
+                >
+                  {u.name}
+                </div>
+              ))}
+
+              {users.length > 4 && (
+                <button
+                  onClick={() => setShowUserPopover(v => !v)}
+                  className="
+                    px-2 py-0.5 text-xs rounded-full
+                    bg-[#1a1a1a]
+                    border border-[#2a2a2a]
+                    text-gray-300 hover:bg-[#222]
+                  "
+                >
+                  +{users.length - 4}
+                </button>
+              )}
+            </div>
+          </div>
+
+        </div>
+
+        {/* RIGHT — Tools */}
+        <div
+          className="
+            flex flex-wrap md:flex-nowrap
+            items-center gap-3
+            bg-[#111]
+            px-3 py-2
+            rounded-xl
+            border border-[#222]
+          "
+        >
+          {/* Palette */}
+          <div className="max-w-full overflow-x-auto">
+            <ColorPalette
+              selectedColor={color}
+              onSelect={setColor}
+            />
+          </div>
+
+          {/* Share */}
           <button
             onClick={async () => {
               const shareUrl = `${window.location.origin}/?roomId=${roomId}`
 
-              // Native share (mobile / supported browsers)
               if (navigator.share) {
                 try {
                   await navigator.share({
                     title: "Join my pixel room",
-                    text: `Join my room (${roomId})`,
                     url: shareUrl
                   })
-                } catch {
-                  // user cancelled — ignore
-                }
+                } catch {}
               } else {
-                // Fallback: copy to clipboard
                 await navigator.clipboard.writeText(shareUrl)
                 setError("Room link copied to clipboard")
               }
             }}
-            className="px-4 py-2 text-sm rounded-lg bg-[#1a1a1a] hover:bg-[#222] text-cyan-300 border border-[#2a2a2a] transition"
+            className="
+              px-3 py-1.5 text-sm rounded-lg
+              bg-[#1a1a1a] hover:bg-[#222]
+              text-cyan-300 border border-[#2a2a2a]
+            "
           >
-            Share Room
+            Share
+          </button>
+
+          {/* Divider */}
+          <div className="hidden md:block h-6 w-px bg-[#333]" />
+
+          {/* Reset */}
+          <button
+            onClick={onResetCanvas}
+            className="
+              px-3 py-1.5 text-sm rounded-lg
+              bg-red-600 hover:bg-red-700
+              text-white
+            "
+          >
+            Reset
           </button>
         </div>
+      </div>
 
-        {/* USERS LIST */}
-        <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl px-4 py-3 w-full max-w-md">
-          <div className="text-sm text-gray-400 mb-2 text-center">
-            Users in this room ({users.length})
+      {/* USER POPOVER */}
+      {showUserPopover && (
+        <div
+          ref={userPopoverRef}
+          className="
+            absolute top-16 left-4 md:left-6
+            w-64 max-h-64
+            bg-[#0f0f0f]
+            border border-[#222]
+            rounded-lg shadow-xl
+            overflow-y-auto
+            z-50
+          "
+        >
+          <div className="px-3 py-2 text-xs text-gray-400 border-b border-[#222]">
+            {users.length} users in this room
           </div>
 
-          <div className="flex flex-wrap gap-2 justify-center">
-            {users.map(u => (
-              <div
-                key={u.userId}
-                className="px-3 py-1 rounded-full text-xs bg-[#0f172a] text-cyan-300 border border-cyan-500/30"
-              >
-                {u.name}
-              </div>
-            ))}
-          </div>
+          {users.map(u => (
+            <div
+              key={u.userId}
+              className="px-3 py-2 text-sm text-gray-200 hover:bg-[#1a1a1a]"
+            >
+              {u.name}
+            </div>
+          ))}
         </div>
+      )}
 
-        {/* CANVAS */}
+      {/* CANVAS AREA */}
+      <div
+        className="
+          flex-1
+          flex justify-center items-start md:items-center
+          overflow-auto
+          p-3 md:p-6
+        "
+      >
         <div
           ref={canvasWrapperRef}
-          className="relative bg-[#1a1a1a] p-4 rounded-2xl shadow-xl border border-[#2a2a2a]"
+          className="
+            relative
+            bg-[#1a1a1a]
+            p-3 md:p-4
+            rounded-2xl
+            shadow-xl
+            border border-[#2a2a2a]
+          "
         >
           <Canvas
             pixels={pixels}
@@ -273,6 +420,7 @@ function App(){
             onCursorMove={onCursorMove}
           />
 
+          {/* CURSOR PRESENCE */}
           {presence.map(p => (
             <div
               key={p.userId}
@@ -313,37 +461,22 @@ function App(){
           ))}
         </div>
       </div>
+
+      {/* ERROR TOAST */}
+      {error && (
+        <div
+          className="
+            fixed bottom-6 left-1/2 -translate-x-1/2
+            bg-red-600 text-white px-5 py-2
+            rounded-lg shadow-lg
+          "
+        >
+          {error}
+        </div>
+      )}
+
     </div>
-
-    {/* ERROR TOAST */}
-    {error && (
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-red-600 text-white px-5 py-2 rounded-lg shadow-lg">
-        {error}
-      </div>
-    )}
-
-    <button
-      onClick={() => {
-        const newRoomId = Math.random().toString(36).slice(2, 8)
-        const url = `${window.location.origin}/?roomId=${newRoomId}`
-        window.open(url, "_blank")
-        // setRoomId(newRoomId)
-      }}
-      className="
-        fixed bottom-6 right-6
-        w-14 h-14 rounded-full
-        bg-cyan-600 hover:bg-cyan-500
-        text-black text-2xl font-bold
-        shadow-lg shadow-cyan-600/30
-        transition active:scale-95
-      "
-      title="Create Room"
-    >
-      +
-    </button>
-
-  </div>
-)
+  )
 }
 
 export default App
