@@ -1,6 +1,8 @@
 import http from "http"
 import { setupWebSocket } from "./ws.js"
 
+const PORT = process.env.PORT || 3000
+
 const server = http.createServer((req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*")
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS")
@@ -19,8 +21,8 @@ const server = http.createServer((req, res) => {
 function startServer() {
   setupWebSocket(server)
 
-  server.listen(3000, () => {
-    console.log("Server running on http://localhost:3000")
+  server.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`)
   })
 }
 
