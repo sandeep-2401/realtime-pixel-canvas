@@ -1,3 +1,4 @@
+declare module "ws";
 import type { WebSocket as WS } from "ws"
 
 export type Pixel = {
