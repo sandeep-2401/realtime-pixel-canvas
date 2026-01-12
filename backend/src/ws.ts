@@ -19,7 +19,7 @@ export function setupWebSocket(server : any){
             payload: getRoomSummaries()
         })
 
-        wss.clients.forEach(client => {
+        wss.clients.forEach((client : any) => {
             if (client.readyState === 1) {
             client.send(msg)
             }
@@ -76,7 +76,7 @@ export function setupWebSocket(server : any){
                 broadcastRoomList()
             })
 
-            ws.on("message",async (data)=>{
+            ws.on("message",async (data : Buffer)=>{
                 const msg = JSON.parse(data.toString())
 
                 if(msg.type == "LOCK_PIXEL"){
