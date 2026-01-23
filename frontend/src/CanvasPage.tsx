@@ -154,7 +154,13 @@ export function CanvasPage({ roomId }: Props) {
         }
 
         else if (msg.type === "DRAW_DENIED") {
+          pendingDrawRef.current = null
+
           setError("You cannot draw this pixel")
+
+          safeSend({
+            type: "REQUEST_SNAPSHOT"
+          })
         }
 
         else if (msg.type === "USER_CURSOR") {
@@ -203,6 +209,20 @@ export function CanvasPage({ roomId }: Props) {
 
   function onPixelClick(x: number, y: number) {
     // if (!connected) return
+    setPixels(prev => {
+      const exists = prev.some(p => p.x === x && p.y === y)
+
+      if (exists) {
+        return prev.map(p =>
+          p.x === x && p.y === y
+            ? { ...p, color }
+            : p
+        )
+      }
+
+      return [...prev, { x, y, color }]
+    })
+
     pendingDrawRef.current = { x, y, color }
     safeSend({
       type: "LOCK_PIXEL",
