@@ -7,12 +7,12 @@ export type Pixel = {
 export type PixelLock = {
   x: number
   y: number
-  ownerId: number
+  ownerId: string
   expiresAt: number
 }
 
 export type UserPresence = {
-  userId: number
+  userId: string
   name : string
   x: number
   y: number

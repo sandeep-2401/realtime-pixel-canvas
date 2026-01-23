@@ -7,7 +7,7 @@ export function tryLockPixel(
     locks : Map<string, PixelLock>,
     x : number, 
     y : number,
-    userId : number ) : PixelLock | null{
+    userId : string ) : PixelLock | null{
     const now = Date.now()
     const key = `${x}:${y}`
     const existing = locks.get(key)

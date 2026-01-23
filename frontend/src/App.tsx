@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { Lobby } from "./Lobby"
 import { CanvasPage } from "./CanvasPage"
+import { WS_BASE_URL } from "./config"
 
 type Room = {
   roomId: string
@@ -15,24 +16,34 @@ function App() {
 
   const [rooms, setRooms] = useState<Room[]>([])
   const lobbyWsRef = useRef<WebSocket | null>(null)
+  const reconnectTimer = useRef<number | null>(null)
 
-  // 🔹 LOBBY-ONLY WebSocket (room list)
   useEffect(() => {
-    if (roomId) return // already inside a room
+    if (roomId) return
 
-    const ws = new WebSocket("ws://localhost:3000")
-    lobbyWsRef.current = ws
+    function connect() {
+      const ws = new WebSocket(WS_BASE_URL)
+      lobbyWsRef.current = ws
 
-    ws.onmessage = (event) => {
-      const msg = JSON.parse(event.data)
-
-      if (msg.type === "ROOM_LIST") {
-        setRooms(msg.payload)
+      ws.onmessage = (event) => {
+        const msg = JSON.parse(event.data)
+        if (msg.type === "ROOM_LIST") {
+          setRooms(msg.payload)
+        }
       }
+
+      ws.onclose = () => {
+        reconnectTimer.current = window.setTimeout(connect, 2000)
+      }
+
+      ws.onerror = () => ws.close()
     }
 
+    connect()
+
     return () => {
-      ws.close()
+      if (reconnectTimer.current) clearTimeout(reconnectTimer.current)
+      lobbyWsRef.current?.close()
       lobbyWsRef.current = null
     }
   }, [roomId])

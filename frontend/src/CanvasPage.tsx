@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from "react"
 import { Canvas } from "./components/Canvas"
 import type { Pixel, PixelLock, UserPresence } from "./types"
 import { ColorPalette } from "./components/ColorPalette"
+import { WS_BASE_URL } from "./config"
 
 type Props = {
   roomId: string
@@ -13,14 +14,25 @@ export function CanvasPage({ roomId }: Props) {
   const [color, setColor] = useState("#ff0000")
   const [error, setError] = useState<string | null>(null)
   const [presence, setPresence] = useState<UserPresence[]>([])
-  const [users, setUsers] = useState<{ userId: number; name: string }[]>([])
+  const [users, setUsers] = useState<{ userId: string; name: string }[]>([])
   const [showUserPopover, setShowUserPopover] = useState(false)
   const userPopoverRef = useRef<HTMLDivElement | null>(null)
   const [isResetting, setIsResetting] = useState(false)
 
+  const [connected, setConnected] = useState(false) 
+
   const wsRef = useRef<WebSocket | null>(null)
   const pendingDrawRef = useRef<{ x: number; y: number; color: string } | null>(null)
   const canvasWrapperRef = useRef<HTMLDivElement | null>(null)
+  const reconnectTimerRef = useRef<number | null>(null) 
+  const myUserIdRef = useRef<string | null>(null)
+
+  /* ---------------- SAFE SEND (NEW) ---------------- */
+  function safeSend(data: any) {
+    const ws = wsRef.current
+    if (!ws || ws.readyState !== WebSocket.OPEN) return
+    ws.send(JSON.stringify(data))
+  }
 
   /* ---------------- ERROR TOAST ---------------- */
   useEffect(() => {
@@ -53,88 +65,132 @@ export function CanvasPage({ roomId }: Props) {
 
   /* ---------------- WEBSOCKET ---------------- */
   useEffect(() => {
-    const ws = new WebSocket(`ws://localhost:3000?roomId=${roomId}`)
-    wsRef.current = ws
-
-    ws.onmessage = (event) => {
-      const msg = JSON.parse(event.data)
-
-      if (msg.type === "CANVAS_SNAPSHOT") {
-        setPixels(msg.payload.pixels)
-        setLocks(msg.payload.locks)
+    function connectWS() {
+      if (wsRef.current){
+        wsRef.current.close()
+        wsRef.current = null
       }
 
-      else if (msg.type === "LOCK_DENIED") {
-        setError("Pixel is already locked")
-      }
+      const ws = new WebSocket(`${WS_BASE_URL}?roomId=${roomId}`) // 🔧 CHANGED
+      wsRef.current = ws
 
-      else if (msg.type === "PIXEL_LOCKED") {
-        setLocks(prev => [
-          ...prev.filter(l => !(l.x === msg.payload.x && l.y === msg.payload.y)),
-          msg.payload
-        ])
+      ws.onopen = () => {
+        setConnected(true)
 
-        const pending = pendingDrawRef.current
-        if (!pending) return
+        if (reconnectTimerRef.current) {
+          clearTimeout(reconnectTimerRef.current)
+          reconnectTimerRef.current = null
+        }
 
-        ws.send(JSON.stringify({
-          type: "DRAW_PIXEL",
-          payload: pending
-        }))
+        setPixels([])
+        setLocks([])
+        setPresence([])
 
         pendingDrawRef.current = null
+
+        const ws = wsRef.current
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: "REQUEST_SNAPSHOT" }))
+        }
       }
 
-      else if (msg.type === "PIXEL_UPDATED") {
-        setPixels(prev => {
-          const exists = prev.some(
-            p => p.x === msg.payload.x && p.y === msg.payload.y
-          )
+      ws.onclose = () => {
+        setConnected(false)
+        pendingDrawRef.current = null
+        reconnectTimerRef.current = window.setTimeout(connectWS, 2000)
+      }
 
-          if (exists) {
-            return prev.map(p =>
-              p.x === msg.payload.x && p.y === msg.payload.y
-                ? { ...p, color: msg.payload.color }
-                : p
+      ws.onerror = () => ws.close()
+
+      ws.onmessage = (event) => {
+        const msg = JSON.parse(event.data)
+
+        if (msg.type === "CANVAS_SNAPSHOT") {
+          setPixels(msg.payload.pixels)
+          setLocks(msg.payload.locks)
+        }
+
+        else if (msg.type === "LOCK_DENIED") {
+          setError("Pixel is already locked")
+        }
+
+        else if (msg.type === "PIXEL_LOCKED") {
+          setLocks(prev => [
+            ...prev.filter(l => !(l.x === msg.payload.x && l.y === msg.payload.y)),
+            msg.payload
+          ])
+
+          const pending = pendingDrawRef.current
+          if (!pending) return
+
+          safeSend({
+            type: "DRAW_PIXEL",
+            payload: pending
+          })
+
+          pendingDrawRef.current = null
+        }
+
+        else if (msg.type === "PIXEL_UPDATED") {
+          setPixels(prev => {
+            const exists = prev.some(
+              p => p.x === msg.payload.x && p.y === msg.payload.y
             )
-          }
 
-          return [...prev, msg.payload]
-        })
+            if (exists) {
+              return prev.map(p =>
+                p.x === msg.payload.x && p.y === msg.payload.y
+                  ? { ...p, color: msg.payload.color }
+                  : p
+              )
+            }
 
-        setLocks(prev =>
-          prev.filter(l => !(l.x === msg.payload.x && l.y === msg.payload.y))
-        )
-      }
+            return [...prev, msg.payload]
+          })
 
-      else if (msg.type === "DRAW_DENIED") {
-        setError("You cannot draw this pixel")
-      }
+          setLocks(prev =>
+            prev.filter(l => !(l.x === msg.payload.x && l.y === msg.payload.y))
+          )
+        }
 
-      else if (msg.type === "USER_CURSOR") {
-        setPresence(prev => [
-          ...prev.filter(p => p.userId !== msg.payload.userId),
-          msg.payload
-        ])
-      }
+        else if (msg.type === "DRAW_DENIED") {
+          setError("You cannot draw this pixel")
+        }
 
-      else if (msg.type === "USER_LEFT") {
-        setPresence(prev =>
-          prev.filter(p => p.userId !== msg.payload.userId)
-        )
-      }
+        else if (msg.type === "USER_CURSOR") {
+          setPresence(prev => [
+            ...prev.filter(p => p.userId !== msg.payload.userId),
+            msg.payload
+          ])
+        }
 
-      else if (msg.type === "USER_LIST") {
-        setUsers(msg.payload)
-      }
+        else if (msg.type === "USER_LEFT") {
+          setPresence(prev =>
+            prev.filter(p => p.userId !== msg.payload.userId)
+          )
+        }
 
-      else if (msg.type === "CANVAS_RESET") {
-        ws.send(JSON.stringify({ type: "REQUEST_SNAPSHOT" }))
+        else if (msg.type === "USER_LIST") {
+          setUsers(msg.payload)
+        }
+
+        else if (msg.type === "CANVAS_RESET") {
+          safeSend({ type: "REQUEST_SNAPSHOT" })
+        }
+
+        else if (msg.type === "WELCOME") {
+          myUserIdRef.current = msg.payload.userId
+        }
       }
     }
 
+    connectWS()
+
     return () => {
-      ws.close()
+      if (reconnectTimerRef.current) {
+        clearTimeout(reconnectTimerRef.current)
+      }
+      wsRef.current?.close()
       wsRef.current = null
       setPixels([])
       setLocks([])
@@ -143,27 +199,33 @@ export function CanvasPage({ roomId }: Props) {
     }
   }, [roomId])
 
-  /* ---------------- HELPERS (THE MISSING ONES) ---------------- */
+  /* ---------------- HELPERS ---------------- */
 
   function onPixelClick(x: number, y: number) {
+    // if (!connected) return
     pendingDrawRef.current = { x, y, color }
-    wsRef.current?.send(JSON.stringify({
+    safeSend({
       type: "LOCK_PIXEL",
       payload: { x, y }
-    }))
+    })
   }
 
   function onCursorMove(x: number, y: number) {
-    wsRef.current?.send(JSON.stringify({
+    // if (!connected) return
+    const ws = wsRef.current
+    if (!ws || ws.readyState !== WebSocket.OPEN) return
+
+    ws.send(JSON.stringify({
       type: "CURSOR_MOVE",
       payload: { x, y }
     }))
   }
 
   function onResetCanvas() {
-    wsRef.current?.send(JSON.stringify({
+    // if (!connected) return
+    safeSend({
       type: "RESET_CANVAS"
-    }))
+    })
   }
 
   function getCanvasOffset() {
@@ -181,6 +243,8 @@ export function CanvasPage({ roomId }: Props) {
   }
 
   const { x: offsetX, y: offsetY } = getCanvasOffset()
+
+  /* ---------------- UI ---------------- */
 
   return (
     <div className="h-screen bg-[#0f0f0f] text-white flex flex-col relative">
@@ -201,18 +265,18 @@ export function CanvasPage({ roomId }: Props) {
         {/* LEFT — Room identity + users */}
         <div className="flex flex-col gap-1">
 
-          {/* Room name */}
           <div className="text-sm font-medium text-white">
             Room <span className="font-mono text-cyan-300">{roomId}</span>
+            <span className={`ml-2 text-xs ${connected ? "text-green-400" : "text-red-400"}`}>
+              {connected ? "Live" : "Reconnecting…"}
+            </span>
           </div>
 
-          {/* Users */}
           <div className="flex items-center gap-2 flex-wrap relative">
             <span className="text-xs text-gray-400">
               Active users:
             </span>
 
-            {/* Mobile: show 2 */}
             <div className="flex items-center gap-2 md:hidden">
               {users.slice(0, 2).map(u => (
                 <div
@@ -223,7 +287,6 @@ export function CanvasPage({ roomId }: Props) {
                     bg-[#1a1a1a]
                     border border-[#2a2a2a]
                     text-cyan-300
-                    whitespace-nowrap
                   "
                 >
                   {u.name}
@@ -233,19 +296,13 @@ export function CanvasPage({ roomId }: Props) {
               {users.length > 2 && (
                 <button
                   onClick={() => setShowUserPopover(v => !v)}
-                  className="
-                    px-2 py-0.5 text-xs rounded-full
-                    bg-[#1a1a1a]
-                    border border-[#2a2a2a]
-                    text-gray-300 hover:bg-[#222]
-                  "
+                  className="px-2 py-0.5 text-xs rounded-full bg-[#1a1a1a] border border-[#2a2a2a]"
                 >
                   +{users.length - 2}
                 </button>
               )}
             </div>
 
-            {/* Desktop: show minimum 4 */}
             <div className="hidden md:flex items-center gap-2">
               {users.slice(0, 4).map(u => (
                 <div
@@ -256,7 +313,6 @@ export function CanvasPage({ roomId }: Props) {
                     bg-[#1a1a1a]
                     border border-[#2a2a2a]
                     text-cyan-300
-                    whitespace-nowrap
                   "
                 >
                   {u.name}
@@ -266,12 +322,7 @@ export function CanvasPage({ roomId }: Props) {
               {users.length > 4 && (
                 <button
                   onClick={() => setShowUserPopover(v => !v)}
-                  className="
-                    px-2 py-0.5 text-xs rounded-full
-                    bg-[#1a1a1a]
-                    border border-[#2a2a2a]
-                    text-gray-300 hover:bg-[#222]
-                  "
+                  className="px-2 py-0.5 text-xs rounded-full bg-[#1a1a1a] border border-[#2a2a2a]"
                 >
                   +{users.length - 4}
                 </button>
@@ -282,29 +333,16 @@ export function CanvasPage({ roomId }: Props) {
         </div>
 
         {/* RIGHT — Tools */}
-        <div
-          className="
-            flex flex-wrap md:flex-nowrap
-            items-center gap-3
-            bg-[#111]
-            px-3 py-2
-            rounded-xl
-            border border-[#222]
-          "
-        >
-          {/* Palette */}
-          <div className="max-w-full overflow-x-auto">
-            <ColorPalette
-              selectedColor={color}
-              onSelect={setColor}
-            />
-          </div>
+        <div className="flex flex-wrap items-center gap-3 bg-[#111] px-3 py-2 rounded-xl border border-[#222]">
 
-          {/* Share */}
+          <ColorPalette
+            selectedColor={color}
+            onSelect={setColor}
+          />
+
           <button
             onClick={async () => {
               const shareUrl = `${window.location.origin}/?roomId=${roomId}`
-
               if (navigator.share) {
                 try {
                   await navigator.share({
@@ -317,29 +355,17 @@ export function CanvasPage({ roomId }: Props) {
                 setError("Room link copied to clipboard")
               }
             }}
-            className="
-              px-3 py-1.5 text-sm rounded-lg
-              bg-[#1a1a1a] hover:bg-[#222]
-              text-cyan-300 border border-[#2a2a2a]
-            "
+            className="px-3 py-1.5 text-sm rounded-lg bg-[#1a1a1a] text-cyan-300 border border-[#2a2a2a]"
           >
             Share
           </button>
 
-          {/* Divider */}
-          <div className="hidden md:block h-6 w-px bg-[#333]" />
-
-          {/* Reset */}
           <button
-            onClick={()=>{
+            onClick={() => {
               setIsResetting(true)
               onResetCanvas()
             }}
-            className="
-              px-3 py-1.5 text-sm rounded-lg
-              bg-red-600 hover:bg-red-700
-              text-white
-            "
+            className="px-3 py-1.5 text-sm rounded-lg bg-red-600 text-white"
           >
             Reset
           </button>
@@ -376,47 +402,17 @@ export function CanvasPage({ roomId }: Props) {
       )}
 
       {/* CANVAS AREA */}
-      <div
-        className="
-          flex-1
-          flex justify-center items-start md:items-center
-          overflow-auto
-          p-3 md:p-6
-        "
-      >
+      <div className="flex-1 flex justify-center items-start md:items-center overflow-auto p-3 md:p-6">
         <div
           ref={canvasWrapperRef}
-          className="
-            relative
-            bg-[#1a1a1a]
-            p-3 md:p-4
-            rounded-2xl
-            shadow-xl
-            border border-[#2a2a2a]
-          "
+          className="relative bg-[#1a1a1a] p-3 md:p-4 rounded-2xl shadow-xl border border-[#2a2a2a]"
         >
+
           {isResetting && (
-            <div className="
-              absolute inset-0
-              bg-[#1a1a1a]/70
-              backdrop-blur-sm
-              flex items-center justify-center
-              rounded-2xl
-              z-20
-            ">
+            <div className="absolute inset-0 bg-[#1a1a1a]/70 backdrop-blur-sm flex items-center justify-center rounded-2xl z-20">
               <div className="flex flex-col items-center gap-3">
-                <div className="
-                  w-48 h-3
-                  bg-[#2a2a2a]
-                  rounded
-                  animate-pulse
-                " />
-                <div className="
-                  w-32 h-3
-                  bg-[#2a2a2a]
-                  rounded
-                  animate-pulse
-                " />
+                <div className="w-48 h-3 bg-[#2a2a2a] rounded animate-pulse" />
+                <div className="w-32 h-3 bg-[#2a2a2a] rounded animate-pulse" />
                 <div className="text-xs text-gray-400 mt-2">
                   Resetting canvas…
                 </div>
@@ -427,6 +423,7 @@ export function CanvasPage({ roomId }: Props) {
           <Canvas
             pixels={pixels}
             locks={locks}
+            myUserId={myUserIdRef.current}
             onPixelClick={onPixelClick}
             onCursorMove={onCursorMove}
           />
@@ -485,8 +482,6 @@ export function CanvasPage({ roomId }: Props) {
           {error}
         </div>
       )}
-
     </div>
   )
-  
 }

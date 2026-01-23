@@ -10,7 +10,7 @@ export type Pixel = {
 export type PixelLock = {
     x : number
     y : number
-    ownerId : number
+    ownerId : string
     expiresAt : number
 }
 
@@ -20,7 +20,7 @@ export type CanvasSnapshot = {
 }
 
 export type UserPresence = {
-  userId: number
+  userId: string
   name : string
   x: number
   y: number
@@ -31,6 +31,6 @@ export type RoomState = {
     canvas : Map<string,Pixel>
     locks : Map<string,PixelLock>
     clients : Set<WS>
-    presence: Map<number, UserPresence>
+    presence: Map<string, UserPresence>
     usedNames: Set<string>       
 }

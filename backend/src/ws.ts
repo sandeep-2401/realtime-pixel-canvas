@@ -1,13 +1,12 @@
 import {WebSocketServer} from "ws";
 import type { WebSocket as WS } from "ws";
+import { randomUUID } from "crypto"
 import { getPrisma } from "./prisma.js"
 import { IncomingMessage } from "node:http";
 import { getAuthoritativeSnapshot, updatePixel } from "./canvas.js";
 import { getLock, releaseLock, tryLockPixel } from "./locks.js"
 import { getOrCreateRoom,removeRoomIfEmpty, getRoomSummaries } from "./rooms.js";
 import { assignRandomName,broadcastUserList } from "./names.js";
-
-let userCounter = 0
 
 export function setupWebSocket(server : any){
     const wss = new WebSocketServer({server})
@@ -28,8 +27,13 @@ export function setupWebSocket(server : any){
 
     wss.on("connection", async (ws : WS, _req : IncomingMessage) => {
         try{
-            const userId = ++userCounter
+            const userId = randomUUID()
             console.log(`User ${userId} connected`)
+
+            ws.send(JSON.stringify({
+                type: "WELCOME",
+                payload: { userId }
+            }))
 
             const url = new URL(_req.url!, "http://localhost")
             const roomId = url.searchParams.get("roomId")

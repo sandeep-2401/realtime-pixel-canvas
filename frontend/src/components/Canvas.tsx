@@ -13,6 +13,7 @@ const PIXEL_HEIGHT = CANVAS_HEIGHT / GRID_ROWS
 type Props = {
   pixels: Pixel[]
   locks: PixelLock[]
+  myUserId: string | null
   onPixelClick: (x: number, y: number) => void
   onCursorMove: (x: number, y: number) => void
 }
@@ -20,6 +21,7 @@ type Props = {
 export function Canvas({
   pixels,
   locks,
+  myUserId,
   onPixelClick,
   onCursorMove
 }: Props) {
@@ -52,6 +54,7 @@ export function Canvas({
 
     // Draw locks
     for (const lock of locks) {
+      if (lock.ownerId === myUserId) continue
       ctx.fillStyle = "rgba(255, 0, 0, 0.4)"
       ctx.fillRect(
         lock.x * PIXEL_WIDTH,
