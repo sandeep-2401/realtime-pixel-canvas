@@ -157,6 +157,7 @@ Render (Node.js WebSocket Server)
 * Node.js
 * TypeScript
 * `ws` WebSocket server
+* MongoDB (for persistent canvas snapshots)
 * UUID-based identity
 * Lock-based concurrency control
 * Snapshot-based recovery
