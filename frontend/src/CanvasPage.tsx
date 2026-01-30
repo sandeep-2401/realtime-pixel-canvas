@@ -132,6 +132,11 @@ export function CanvasPage({ roomId }: Props) {
         }
 
         else if (msg.type === "PIXEL_UPDATED") {
+          if (msg.payload.sentAt) {
+            const latency = Date.now() - msg.payload.sentAt
+            console.log("Pixel latency (ms):", latency)
+          }
+
           setPixels(prev => {
             const exists = prev.some(
               p => p.x === msg.payload.x && p.y === msg.payload.y
