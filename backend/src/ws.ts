@@ -9,6 +9,19 @@ import { getOrCreateRoom,removeRoomIfEmpty, getRoomSummaries } from "./rooms.js"
 import { assignRandomName,broadcastUserList } from "./names.js";
 
 export function setupWebSocket(server : any){
+
+    let updatesThisSecond = 0
+    let activeConnections = 0
+
+    setInterval(() => {
+        console.log("updates/sec:", updatesThisSecond)
+        updatesThisSecond = 0
+    }, 1000)
+
+    setInterval(() => {
+        console.log("active users:", activeConnections)
+    }, 5000)
+
     const wss = new WebSocketServer({server})
 
     function broadcastRoomList() {
@@ -27,6 +40,7 @@ export function setupWebSocket(server : any){
 
     wss.on("connection", async (ws : WS, _req : IncomingMessage) => {
         try{
+            activeConnections++
             const userId = randomUUID()
             console.log(`User ${userId} connected`)
 
@@ -63,6 +77,7 @@ export function setupWebSocket(server : any){
             broadcastUserList(room)
 
             ws.on("close",()=>{
+                activeConnections--
                 room.clients.delete(ws)
                 room.presence.delete(userId)
                 room.usedNames.delete(userName)
@@ -125,6 +140,7 @@ export function setupWebSocket(server : any){
                     }
 
                     await updatePixel(roomId,room_canvas,x,y,color)
+                    updatesThisSecond++
                     setTimeout(() => {
                         releaseLock(room_locks,key)
                     }, 2)
