@@ -112,7 +112,7 @@ export function setupWebSocket(server : any){
                 }
 
                 else if(msg.type === "DRAW_PIXEL"){
-                    const {x,y,color} = msg.payload
+                    const {x,y,color, sentAt } = msg.payload
                     const key = `${x}:${y}`
                     const lock = getLock(room_locks,key)
 
@@ -134,7 +134,7 @@ export function setupWebSocket(server : any){
                         if(client.readyState ===1){
                             client.send(JSON.stringify({
                                 type : "PIXEL_UPDATED",
-                                payload : {x,y,color}
+                                payload : {x,y,color, sentAt}
                             }))
                         }
                     })

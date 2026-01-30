@@ -22,7 +22,7 @@ export function CanvasPage({ roomId }: Props) {
   const [connected, setConnected] = useState(false) 
 
   const wsRef = useRef<WebSocket | null>(null)
-  const pendingDrawRef = useRef<{ x: number; y: number; color: string } | null>(null)
+  const pendingDrawRef = useRef<{ x: number; y: number; color: string, sentAt: number } | null>(null)
   const canvasWrapperRef = useRef<HTMLDivElement | null>(null)
   const reconnectTimerRef = useRef<number | null>(null) 
   const myUserIdRef = useRef<string | null>(null)
@@ -223,7 +223,7 @@ export function CanvasPage({ roomId }: Props) {
       return [...prev, { x, y, color }]
     })
 
-    pendingDrawRef.current = { x, y, color }
+    pendingDrawRef.current = { x, y, color, sentAt: Date.now() }
     safeSend({
       type: "LOCK_PIXEL",
       payload: { x, y }
