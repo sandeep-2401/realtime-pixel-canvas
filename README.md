@@ -141,6 +141,16 @@ Render (Node.js WebSocket Server)
 
 ---
 
+## Performance & Load Testing
+
+The WebSocket backend was load-tested using k6 to evaluate connection stability, latency, and real-time message throughput under concurrent usage.
+
+The system reliably supports up to 100 concurrent users with stable WebSocket connections and consistent message delivery. Beyond this point, connection latency increases and handshake timeouts begin to appear, while active sessions continue to operate normally.
+
+All benchmarks were run against a single backend instance. Detailed results and analysis are available in the [`benchmarks/`](./benchmarks) directory.
+
+---
+
 ## Technology Stack
 
 ### Frontend
